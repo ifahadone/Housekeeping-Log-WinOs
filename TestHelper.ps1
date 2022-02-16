@@ -1,6 +1,9 @@
 # Unzip Arc
 Expand-Archive -LiteralPath 'C:\W.Zip' -DestinationPath C:\Apps\Logs -Force
 
+# EDIT LASTWRITE/ DATE MODIFIED DATE
+(Get-Item "C:\Apps\Logs\Archives\WorkFlowManager-20220217.zip").LastWriteTime = '01/11/2019 06:00:36'
+
 # Create Dummy Logs
 New-Item -Path 'C:\Apps\Logs\' -Name "WorkFlowManager-20221110.log" -ItemType File
 New-Item -Path 'C:\Apps\Logs\' -Name "WorkFlowDispatcher2-20221210.log" -ItemType File

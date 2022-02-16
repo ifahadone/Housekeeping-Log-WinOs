@@ -8,16 +8,16 @@ cd C:\Apps\Logs\
 
 
 if(!(Test-Path -Path $LogArchivePath )){
-    New-Item -Path $LogArchivePath -ItemType directory
+    try { New-Item -Path $LogArchivePath -ItemType directory } catch { }
 }
 
 
 if (Test-Path $LogDelLog) {
-    Remove-Item $LogDelLog
+    try { Remove-Item $LogDelLog } catch { }
 }
 
 if (Test-Path $LogArchiveDelLog) {
-    Remove-Item $LogDelLog
+    try { Remove-Item $LogArchiveDelLog } catch { }
 }
 
 dir $Logs | group  { $_.Name -replace '-\d\d\d\d\d\d\d\d.log$', '' } | %{
@@ -26,8 +26,7 @@ dir $Logs | group  { $_.Name -replace '-\d\d\d\d\d\d\d\d.log$', '' } | %{
     Write-Host "=>"$filename
 
     $subset.Group | %{
-
-        Compress-Archive -Path $_ -DestinationPath $filename -Update -CompressionLevel Optimal
+    try { Compress-Archive -Path $_ -DestinationPath $filename -Update -CompressionLevel Optimal } catch { }
     }
 }
 
@@ -37,16 +36,16 @@ Get-ChildItem $LogPath -Force -ea 0 -Filter *.log |
 Select-Object -Skip 1 |
 ForEach-Object {
     Write-Host "LOG"$_.FullName
-    $_ | del -Force
-    "$Today | $_" | Out-File $LogDelLog -Append
+    try { $_ | del -Force } catch { }
+    try { "$Today | $_" | Out-File $LogDelLog -Append } catch { }
 }
 
 Get-ChildItem $LogArchivePath -Recurse -Force -ea 0 -Filter *.zip |
 ? {!$_.PsIsContainer -and $_.LastWriteTime -lt (Get-Date).AddDays(0)} |
 ForEach-Object {
     Write-Host "ARC"$_.FullName
-    $_ | del -Force
-    $_.FullName | Out-File $LogArchiveDelLog -Append
+    try { $_ | del -Force } catch { }
+    try { "$Today | $_" | Out-File $LogArchiveDelLog -Append } catch { }
 }
 
 
