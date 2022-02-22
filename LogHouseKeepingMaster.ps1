@@ -12,29 +12,33 @@ cd C:\Apps\Logs\
 $elevated = ([Security.Principal.WindowsPrincipal] `
  [Security.Principal.WindowsIdentity]::GetCurrent()
 ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-Write-Host 'Me= $elevated'
+Write-Host "Me= $elevated"
 
-## CREATE SCHEDULER
-#[string]$action=New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument $PSCommandPath
-#[string]$trigger=New-ScheduledTaskTrigger -At 01:00am -Daily
-#[string]$settings=New-ScheduledTaskSettingsSet -MultipleInstances Parallel
-#[string]$taskname="LogMaster"
-#[string]$taskdescription="Manage K2 Logs and Archives"
-#Register-ScheduledTask -Action $action -Trigger $trigger -TaskName $taskname -Description $taskdescription -Settings $settings -User "System"
-#
-## DELETE IF REDUNDANT SCHEDULER EXIST #1
-#[string]$apachelogs="Apache Logs Housekeeping"
-#Get-ScheduledTask -TaskName $apachelogs -ErrorAction SilentlyContinue -OutVariable apachelogstask
-#if ($apachelogstask) {
-#    Get-ScheduledTask -TaskName $apachelogs | Unregister-ScheduledTask -Confirm:$false
-#    }
-#
-## DELETE IF REDUNDANT SCHEDULER EXIST #2
-#[string]$appslogs="Apps Logs Housekeeping"
-#Get-ScheduledTask -TaskName $appslogs -ErrorAction SilentlyContinue -OutVariable appslogstask
-#if ($appslogstask) {
-#    Get-ScheduledTask -TaskName $appslogstask | Unregister-ScheduledTask -Confirm:$false
-#    }
+# CREATE SCHEDULER
+$TRIGGER = New-ScheduledTaskTrigger -At 01:00am -Daily
+$USER = "System"
+$ACTION = New-ScheduledTaskAction powershell.exe -Argument “-file C:\Users\fahad\Repos\LogCompresser.ps1" 
+$TASK_NAME="LogMaster"
+$TASK_DESC="Manage K2 Logs and Archives"
+Register-ScheduledTask -TaskName $TASK_NAME -Description $TASK_DESC -Trigger $TRIGGER -User $USER -Action $ACTION
+
+
+
+
+
+# DELETE IF REDUNDANT SCHEDULER EXIST #1
+[string]$apachelogs="Apache Logs Housekeeping"
+Get-ScheduledTask -TaskName $apachelogs -ErrorAction SilentlyContinue -OutVariable apachelogstask
+if ($apachelogstask) {
+    Get-ScheduledTask -TaskName $apachelogs | Unregister-ScheduledTask -Confirm:$false
+    }
+
+# DELETE IF REDUNDANT SCHEDULER EXIST #2
+[string]$appslogs="Apps Logs Housekeeping"
+Get-ScheduledTask -TaskName $appslogs -ErrorAction SilentlyContinue -OutVariable appslogstask
+if ($appslogstask) {
+    Get-ScheduledTask -TaskName $appslogstask | Unregister-ScheduledTask -Confirm:$false
+    }
 
 # CREATE IF LOG PATH NOT EXIST
 if(!(Test-Path -Path $LogPath )){
@@ -57,12 +61,15 @@ if (Test-Path $ArchiveDelLog) {
 }
 # FIND LOGS WITH REGEX AND GROUP THEM FOLLOWED BY COMPRESSION
 [string]$Logs="C:\Apps\Logs\*.log"
-dir $Logs | group  { $_.Name -replace '-\d\d\d\d\d\d\d\d.log$', '' } | %{
-    $final=$_.Name
-    $filename= "Archives\$final-$(Get-Date -f yyyyMMdd).zip"
+[string]$Today=Get-Date -f _yyyy-MM-dd
+dir $Logs | group  { $_.Name -replace '-\d\d\d\d\d\d\d\d.log$', ''} | %{
+    $subset = $_
+    $finalName= $LogArchivePath+$subset.Name+$Today
+    Write-Host $subset.Name
 
     $subset.Group | %{
-    try { Compress-Archive -Path $_ -DestinationPath $filename -Update -CompressionLevel Optimal } catch { }
+        #$error.clear()
+        Compress-Archive $_ $finalName -Update -CompressionLevel Optimal
     }
 }
 
