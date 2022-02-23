@@ -1,5 +1,4 @@
-cd C:\Apps\Logs\
-
+#Requires -RunAsAdministrator
 # LOG & ARCHIVE DIRECTORIES
 [string]$LOG_PATH = "C:\Apps\Logs\"
 [string]$LOG_ARC_PATH = "C:\Apps\Logs\Archives\"
@@ -8,28 +7,34 @@ cd C:\Apps\Logs\
 [string]$LOGGER_DEL = "C:\Apps\Logs\DelLog.txt"
 [string]$LOGGER_ARC_DEL = "C:\Apps\Logs\Archives\ArchiveDelLog.txt"
 
+[string]$TODAY = Get-Date -f yyyyMMdd
+[string]$IS_DEB = $true
+[string]$LOGGER_DEBUG = "C:\Apps\Logs\Debug.txt"
+
+function debug {
+    [CmdletBinding()] ` param( `	[Parameter()] `	[string] $a ) `
+        if ($IS_DEB -eq $true) { try { "$TODAY | $a" | Out-File $LOGGER_DEBUG -Append } catch { } }
+}
+
 # CHECK IF USER ADMINSTRATOR
 $elevated = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-Write-Host "Me= $elevated"
-
-if ($elevated) {
+debug -a "elevation $elevated"
+if ($elevated -eq $true) {
     # CREATE SCHEDULER
     $Trigger = New-ScheduledTaskTrigger -At 01:00am -Daily
-    $Action = New-ScheduledTaskAction powershell.exe -Argument “-file $PSCommandPath" 
+    $Action = New-ScheduledTaskAction powershell.exe -Argument "-file $PSCommandPath" 
     [string]$User = "System"
     [string]$Task_Name = "LogMaster"
     [string]$Task_Desc = "Manage K2 Logs and Archives"
-    Get-ScheduledTask -TaskName $Task_Name -ErrorAction SilentlyContinue -OutVariable isLogMaster
-    Write-Host "isLogMaster" $isLogMaster
-    if (!$isLogMaster) {
-        Register-ScheduledTask -TaskName $Task_Name -Description $Task_Desc -Trigger $Trigger -User $User -Action $Action
-    }
+    debug -a "Registering $Task_Name"
+    Register-ScheduledTask -TaskName $Task_Name -Description $Task_Desc -Trigger $Trigger -User $User -Action $Action
+
 
     # DELETE IF REDUNDANT SCHEDULER EXIST #1
     [string]$Sched_Apachelogs = "Apache Logs Housekeeping"
     Get-ScheduledTask -TaskName $Sched_Apachelogs -ErrorAction SilentlyContinue -OutVariable isSchedApachelogs
-    Write-Host "isSchedApachelogs" $isSchedApachelogs
-    if ($isSchedApachelogs) {
+    if ($isSchedApachelogs -eq $true) {
+        debug -a "Unregistering $Sched_Apachelogs"
         Get-ScheduledTask -TaskName $Sched_Apachelogs | Unregister-ScheduledTask -Confirm:$false
     }
 
@@ -37,7 +42,8 @@ if ($elevated) {
     [string]$Sched_Appslogs = "Apps Logs Housekeeping"
     Get-ScheduledTask -TaskName $Sched_Appslogs -ErrorAction SilentlyContinue -OutVariable isSchedAppslogs
     Write-Host "isSchedAppslogs" $isSchedAppslogs
-    if ($isSchedAppslogs) {
+    if ($isSchedAppslogs -eq $true) {
+        debug -a "Unregistering $Sched_Appslogs"
         Get-ScheduledTask -TaskName $Sched_Appslogs | Unregister-ScheduledTask -Confirm:$false
     }
 }
@@ -63,12 +69,11 @@ if (Test-Path $LOGGER_ARC_DEL) {
 }
 # FIND LOGS WITH REGEX AND GROUP THEM FOLLOWED BY COMPRESSION
 [string]$Logs = "C:\Apps\Logs\*.log"
-[string]$Today = Get-Date -f _yyyy-MM-dd
+[string]$TODAYD = Get-Date -f _yyyy-MM-dd
 dir $Logs | group { $_.Name -replace '-\d\d\d\d\d\d\d\d.log$', '' } | % {
     $subset = $_
-    $finalName = $LOG_ARC_PATH + $subset.Name + $Today
+    $finalName = $LOG_ARC_PATH + $subset.Name + $TODAYD
     Write-Host $subset.Name
-
     $subset.Group | % {
         #$error.clear()
         Compress-Archive $_ $finalName -Update -CompressionLevel Optimal
@@ -76,22 +81,19 @@ dir $Logs | group { $_.Name -replace '-\d\d\d\d\d\d\d\d.log$', '' } | % {
 }
 
 # DELETE LOGS OLDER THAN #1 DAY
-[string]$Today = Get-Date -f yyyyMMdd
 Get-ChildItem $LOG_PATH -Force -ea 0 -Filter *.log |
 ? { !$_.PsIsContainer -and $_.LastWriteTime -lt (Get-Date).AddDays(-1) } |
 ForEach-Object {
-    Write-Host "LOG"$_.FullName
+    debug -a "Del Log: $_.FullName"
     try { $_ | del -Force } catch { }
-    try { "$Today | $_" | Out-File $LOGGER_DEL -Append } catch { }
+    try { "$TODAY | $_" | Out-File $LOGGER_DEL -Append } catch { }
 }
 
 # DELETE ARCHIVE OLDER THAN #60 DAY
 Get-ChildItem $LOG_ARC_PATH -Recurse -Force -ea 0 -Filter *.zip |
 ? { !$_.PsIsContainer -and $_.LastWriteTime -lt (Get-Date).AddDays(-60) } |
 ForEach-Object {
-    Write-Host "ARC"$_.FullName
+    debug -a "Del Arc: $_.FullName"
     try { $_ | del -Force } catch { }
-    try { "$Today | $_" | Out-File $LOGGER_ARC_DEL -Append } catch { }
+    try { "$TODAY | $_" | Out-File $LOGGER_ARC_DEL -Append } catch { }
 }
-
-
