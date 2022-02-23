@@ -6,10 +6,8 @@
 # PS LOGS FILES
 [string]$LOGGER_DEL = "C:\Apps\Logs\DelLog.txt"
 [string]$LOGGER_ARC_DEL = "C:\Apps\Logs\Archives\ArchiveDelLog.txt"
-
 [string]$TODAY = Get-Date -f yyyyMMdd
-[string]$IS_DEB = $true
-[string]$LOGGER_DEBUG = "C:\Apps\Logs\Debug.txt"
+[string]$IS_DEB = $false; [string]$LOGGER_DEBUG = "C:\Apps\Logs\Debug.txt"
 
 function debug {
     [CmdletBinding()] ` param( `	[Parameter()] `	[string] $a ) `
@@ -21,14 +19,10 @@ $elevated = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsId
 debug -a "elevation $elevated"
 if ($elevated -eq $true) {
     # CREATE SCHEDULER
-    $Trigger = New-ScheduledTaskTrigger -At 01:00am -Daily
-    $Action = New-ScheduledTaskAction powershell.exe -Argument "-file $PSCommandPath" 
-    [string]$User = "System"
-    [string]$Task_Name = "LogMaster"
-    [string]$Task_Desc = "Manage K2 Logs and Archives"
+    $Trigger = New-ScheduledTaskTrigger -At 01:00am -Daily;$Action = New-ScheduledTaskAction powershell.exe -Argument "-file $PSCommandPath" 
+    [string]$User = "System"; [string]$Task_Name = "LogMaster"; [string]$Task_Desc = "Manage K2 Logs and Archives"
     debug -a "Registering $Task_Name"
     Register-ScheduledTask -TaskName $Task_Name -Description $Task_Desc -Trigger $Trigger -User $User -Action $Action
-
 
     # DELETE IF REDUNDANT SCHEDULER EXIST #1
     [string]$Sched_Apachelogs = "Apache Logs Housekeeping"
@@ -49,35 +43,23 @@ if ($elevated -eq $true) {
 }
 
 # CREATE IF LOG PATH NOT EXIST
-if (!(Test-Path -Path $LOG_PATH )) {
-    try { New-Item -Path $LOG_PATH -ItemType directory } catch { }
-}
+if (!(Test-Path -Path $LOG_PATH )) { try { New-Item -Path $LOG_PATH -ItemType directory } catch { }}
 
 # CREATE IF ARCHIVE PATH NOT EXIST
-if (!(Test-Path -Path $LOG_ARC_PATH )) {
-    try { New-Item -Path $LOG_ARC_PATH -ItemType directory } catch { }
-}
+if (!(Test-Path -Path $LOG_ARC_PATH )) { try { New-Item -Path $LOG_ARC_PATH -ItemType directory } catch { }}
 
 # REMOVE PS DEL-LOG
-if (Test-Path $LOGGER_DEL) {
-    try { Remove-Item $LOGGER_DEL } catch { }
-}
+if (Test-Path $LOGGER_DEL) { try { Remove-Item $LOGGER_DEL } catch { }}
 
 # REMOVE PS DEL-ARCHIVE-LOG
-if (Test-Path $LOGGER_ARC_DEL) {
-    try { Remove-Item $LOGGER_ARC_DEL } catch { }
-}
+if (Test-Path $LOGGER_ARC_DEL) { try { Remove-Item $LOGGER_ARC_DEL } catch { }}
+
 # FIND LOGS WITH REGEX AND GROUP THEM FOLLOWED BY COMPRESSION
 [string]$Logs = "C:\Apps\Logs\*.log"
 [string]$TODAYD = Get-Date -f _yyyy-MM-dd
-dir $Logs | group { $_.Name -replace '-\d\d\d\d\d\d\d\d.log$', '' } | % {
-    $subset = $_
-    $finalName = $LOG_ARC_PATH + $subset.Name + $TODAYD
-    Write-Host $subset.Name
-    $subset.Group | % {
-        #$error.clear()
-        Compress-Archive $_ $finalName -Update -CompressionLevel Optimal
-    }
+dir $Logs | group { $_.Name -replace '-\d\d\d\d\d\d\d\d.log$', '' } | % { 
+    $subset = $_; $finalName = $LOG_ARC_PATH + $subset.Name + $TODAYD;
+    $subset.Group | % { Compress-Archive $_ $finalName -Update -CompressionLevel Optimal }
 }
 
 # DELETE LOGS OLDER THAN #1 DAY
