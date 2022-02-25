@@ -22,3 +22,13 @@
     - it will create dummy logs file and
     - it will also override `created date` backward so that can test `1`, `60` days old files
 - Run the `LogManager.ps1` as `Administrator`
+
+# Helpful
+### Unzip Arc
+```Expand-Archive -LiteralPath 'C:\W.Zip' -DestinationPath C:\Apps\Logs -Force```
+
+### EDIT LASTWRITE/ DATE MODIFIED DATE
+```(Get-Item "C:\Apps\Logs\Archives\WorkFlowManager-20220217.zip").LastWriteTime = '01/11/2019 06:00:36'```
+
+### REMOVE POWERSHELL CACHE
+```Remove-Variable * -ErrorAction SilentlyContinue; Remove-Module *; $error.Clear(); Clear-Host```

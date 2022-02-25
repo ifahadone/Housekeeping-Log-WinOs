@@ -1,4 +1,9 @@
 #Requires -RunAsAdministrator
+# DECLARE ARGS
+param (
+    [string]$skip = $false
+    )
+
 # LOG & ARCHIVE DIRECTORIES
 [string]$LOG_PATH = "C:\Apps\Logs\"
 [string]$LOG_ARC_PATH = "C:\Apps\Logs\Archives\"
@@ -17,9 +22,9 @@ function debug {
 # CHECK IF USER ADMINSTRATOR
 $elevated = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 debug -a "elevation $elevated"
-if ($elevated -eq $true) {
+if ($elevated -eq $true -And $skip -eq $false) {
     # CREATE SCHEDULER
-    $Trigger = New-ScheduledTaskTrigger -At 01:00am -Daily;$Action = New-ScheduledTaskAction powershell.exe -Argument "-file $PSCommandPath" 
+    $Trigger = New-ScheduledTaskTrigger -At 01:00am -Daily;$Action = New-ScheduledTaskAction powershell.exe -Argument "-file $PSCommandPath -skip $true"
     [string]$User = "System"; [string]$Task_Name = "LogMaster"; [string]$Task_Desc = "Manage K2 Logs and Archives"
     debug -a "Registering $Task_Name"
     Register-ScheduledTask -TaskName $Task_Name -Description $Task_Desc -Trigger $Trigger -User $User -Action $Action
